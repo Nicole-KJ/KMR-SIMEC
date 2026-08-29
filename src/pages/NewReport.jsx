@@ -13,6 +13,7 @@ import { useToast } from '../contexts/ToastContext'
 import { logError } from '../utils/logger'
 import { SERVICE_TYPES, VARIOS_SERVICE_TYPE } from '../constants/serviceTypes'
 import { STATUS_LABELS as EVENT_STATUS_LABELS } from '../constants/eventStatus'
+import { useBackNavigate } from '../hooks/useBackNavigate'
 
 // Generador de IDs compatible con HTTP y HTTPS
 const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -34,6 +35,7 @@ function eventOptionLabel(ev) {
 
 export default function NewReport() {
   const navigate = useNavigate()
+  const goBack = useBackNavigate()
   const { id: reportId } = useParams()
   const [searchParams] = useSearchParams()
   const isEditMode = Boolean(reportId)
@@ -657,7 +659,7 @@ export default function NewReport() {
   if (step === 1) return (
     <div className="content-wrapper fade-in">
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:28 }}>
-        <button className="icon-btn" onClick={() => navigate(-1)}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
         <div>
           <h1 style={{ fontSize:22, fontWeight:800 }}>Nuevo Reporte</h1>
           <p style={{ color:'var(--clr-text-light)', fontSize:13 }}>Selecciona el tipo de equipo</p>
@@ -716,7 +718,7 @@ export default function NewReport() {
   return (
     <div className="content-wrapper fade-in">
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:28 }}>
-        <button className="icon-btn" onClick={() => isEditMode ? navigate(`/reporte/${reportId}`) : setStep(1)}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={() => isEditMode ? goBack() : setStep(1)}><ArrowLeft size={18} /></button>
         <div>
           <h1 style={{ fontSize:22, fontWeight:800 }}>
             {module?.icon} {isEditMode ? `Editar Reporte #${String(reportNumber ?? 0).padStart(4, '0')}` : 'Informe de Servicio'} – {module?.name}

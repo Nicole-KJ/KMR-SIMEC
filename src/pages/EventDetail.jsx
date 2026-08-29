@@ -8,10 +8,12 @@ import { SERVICE_TYPES } from '../constants/serviceTypes'
 import { MODULES, EQUIPMENT_MODULES } from '../constants/equipmentModules'
 import { EVENT_STATUSES, STATUS_LABELS } from '../constants/eventStatus'
 import { BADGE_CLASS, STATUS_LABEL as REPORT_STATUS_LABEL } from '../constants/reportStatus'
+import { useBackNavigate } from '../hooks/useBackNavigate'
 
 export default function EventDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const goBack = useBackNavigate()
   const { showToast } = useToast()
 
   const [event, setEvent] = useState(null)
@@ -102,7 +104,7 @@ export default function EventDetail() {
     <div className="content-wrapper fade-in">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button className="icon-btn" onClick={() => navigate('/eventos')}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>
             <CalendarDays size={20} style={{ verticalAlign: 'middle', marginRight: 8 }} />

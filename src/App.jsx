@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
@@ -22,12 +22,17 @@ import EventDetail from './pages/EventDetail'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>
       <div className="loading-spinner" />
     </div>
   )
-  return user ? children : <Navigate to="/login" replace />
+  // Carries the page someone actually asked for (e.g. a shared /reporte/:id
+  // link opened while logged out) through to Login, so signing in lands them
+  // there instead of always on the dashboard -- see Login.jsx's use of
+  // location.state?.from.
+  return user ? children : <Navigate to="/login" state={{ from: location }} replace />
 }
 
 function AdminRoute({ children }) {

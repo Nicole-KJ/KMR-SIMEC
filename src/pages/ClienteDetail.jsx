@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useClientsDirectory } from '../hooks/useClientsDirectory'
 import { useReports } from '../hooks/useReports'
 import { usePagination } from '../hooks/usePagination'
+import { useBackNavigate } from '../hooks/useBackNavigate'
 import { updateReportClientInfo } from '../services/supabaseDB'
 import { isBlank, isValidEmail } from '../utils/validation'
 import { useToast } from '../contexts/ToastContext'
@@ -17,6 +18,7 @@ const normalize = s => (s || '').trim().toLowerCase()
 export default function ClienteDetail() {
   const { id: rawId } = useParams()
   const navigate = useNavigate()
+  const goBack = useBackNavigate()
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const id = decodeURIComponent(rawId)
@@ -112,7 +114,7 @@ export default function ClienteDetail() {
     return (
       <div className="content-wrapper fade-in">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-          <button className="icon-btn" onClick={() => navigate('/clientes')}><ArrowLeft size={18} /></button>
+          <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Cliente no encontrado</h1>
         </div>
         {clientsError && <p style={{ color: 'var(--clr-danger)', fontSize: 14 }}>{clientsError}</p>}
@@ -123,7 +125,7 @@ export default function ClienteDetail() {
   return (
     <div className="content-wrapper fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button className="icon-btn" onClick={() => navigate('/clientes')}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>{loading ? 'Cargando…' : (client.full_name || '—')}</h1>
           <p style={{ color: 'var(--clr-text-light)', fontSize: 13 }}>Ficha del cliente</p>

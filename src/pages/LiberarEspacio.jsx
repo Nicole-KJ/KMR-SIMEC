@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, HardDrive, Download, FileX2, Trash2, Loader, X } from 'lucide-react'
 import { useReports } from '../hooks/useReports'
 import { useReportFilters } from '../hooks/useReportFilters'
@@ -9,9 +8,10 @@ import { useToast } from '../contexts/ToastContext'
 import { logError } from '../utils/logger'
 import ReportsTable, { ReportsTableSkeleton } from '../components/ReportsTable'
 import ReportFilters from '../components/ReportFilters'
+import { useBackNavigate } from '../hooks/useBackNavigate'
 
 export default function LiberarEspacio() {
-  const navigate = useNavigate()
+  const goBack = useBackNavigate()
   const { showToast } = useToast()
   const { reports, loading, error, reload } = useReports()
 
@@ -115,7 +115,7 @@ export default function LiberarEspacio() {
   return (
     <div className="content-wrapper fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button className="icon-btn" onClick={() => navigate('/admin/configuracion')}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>
             <HardDrive size={20} style={{ verticalAlign: 'middle', marginRight: 8 }} />Liberar Espacio de Almacenamiento

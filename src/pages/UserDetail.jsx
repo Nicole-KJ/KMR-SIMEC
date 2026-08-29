@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ArrowLeft, Loader } from 'lucide-react'
 import { listUsers } from '../services/adminUsersService'
 import { useReports } from '../hooks/useReports'
+import { useBackNavigate } from '../hooks/useBackNavigate'
 import ReportStatsPanel from '../components/ReportStatsPanel'
 import { logError } from '../utils/logger'
 
@@ -10,7 +11,7 @@ const ROLE_LABELS = { admin: 'Administrador', tecnico: 'Técnico', cliente: 'Cli
 
 export default function UserDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
+  const goBack = useBackNavigate()
 
   const [users, setUsers] = useState([])
   const [usersLoading, setUsersLoading] = useState(true)
@@ -48,7 +49,7 @@ export default function UserDetail() {
     return (
       <div className="content-wrapper fade-in">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-          <button className="icon-btn" onClick={() => navigate('/admin/usuarios')}><ArrowLeft size={18} /></button>
+          <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Usuario no encontrado</h1>
         </div>
         {usersError && <p style={{ color: 'var(--clr-danger)', fontSize: 14 }}>{usersError}</p>}
@@ -59,7 +60,7 @@ export default function UserDetail() {
   return (
     <div className="content-wrapper fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button className="icon-btn" onClick={() => navigate('/admin/usuarios')}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>{usersLoading ? 'Cargando…' : (targetUser.full_name || targetUser.email)}</h1>
           <p style={{ color: 'var(--clr-text-light)', fontSize: 13 }}>Estadísticas del usuario</p>

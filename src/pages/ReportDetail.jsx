@@ -13,6 +13,7 @@ import GenericModuleDetail from '../components/EquipmentGeneric/GenericModuleDet
 import { useToast } from '../contexts/ToastContext'
 import { logError } from '../utils/logger'
 import { SkeletonBlock } from '../components/Skeleton'
+import { useBackNavigate } from '../hooks/useBackNavigate'
 
 const UPS_ACTIVITIES_LABELS = EQUIPMENT_MODULES.ups.activitiesLabels
 const UPS_TESTS_LABELS = EQUIPMENT_MODULES.ups.testsLabels
@@ -25,6 +26,7 @@ const PHOTO_TYPE_LABELS = { equipo: '📷 Fotos del Equipo', antes: '⏮️ Foto
 export default function ReportDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const goBack = useBackNavigate()
   const { isAdmin, isClient } = useAuth()
   const { showToast } = useToast()
   const [report, setReport] = useState(null)
@@ -275,7 +277,7 @@ export default function ReportDetail() {
     <div className="content-wrapper fade-in">
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:28 }}>
-        <button className="icon-btn" onClick={() => navigate('/dashboard')}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
         <div style={{ flex:1 }}>
           <h1 style={{ fontSize:22, fontWeight:800 }}>
             Reporte #{String(report.report_number ?? 0).padStart(4,'0')}

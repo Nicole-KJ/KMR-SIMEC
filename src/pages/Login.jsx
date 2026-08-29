@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { getPublicBranding } from '../services/supabaseDB'
@@ -15,6 +15,11 @@ export default function Login() {
   const [branding, setBranding] = useState(null)
   const { signIn } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Set by PrivateRoute (App.jsx) when this login was forced by opening a
+  // protected page directly (e.g. a shared /reporte/:id link) while logged
+  // out -- redirect back there instead of always to the dashboard.
+  const from = location.state?.from
 
   useEffect(() => {
     getPublicBranding().catch(err => { logError('Login.getPublicBranding', err); return null }).then(setBranding)
@@ -26,7 +31,13 @@ export default function Login() {
     setLoading(true)
     try {
       await signIn(email, password)
-      navigate('/dashboard')
+      // replace: true drops /login from history so the back arrow on the
+      // landing page can't bounce into it. fromLogin marks that landing page
+      // as having no real "previous view" of its own to go back to -- see
+      // useBackNavigate, which sends the back arrow to the dashboard instead
+      // of history-back when it sees this flag.
+      const target = from ? `${from.pathname}${from.search || ''}` : '/dashboard'
+      navigate(target, { replace: true, state: { fromLogin: true } })
     } catch (err) {
       setError('Correo o contraseña incorrectos. Verifica tus datos.')
     } finally {

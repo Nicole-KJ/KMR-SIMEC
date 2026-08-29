@@ -9,9 +9,11 @@ import { logError } from '../utils/logger'
 import { SERVICE_TYPES } from '../constants/serviceTypes'
 import { MODULES } from '../constants/equipmentModules'
 import { EVENT_STATUSES } from '../constants/eventStatus'
+import { useBackNavigate } from '../hooks/useBackNavigate'
 
 export default function NewEvento() {
   const navigate = useNavigate()
+  const goBack = useBackNavigate()
   const { id: eventId } = useParams()
   const isEditMode = Boolean(eventId)
   const [searchParams] = useSearchParams()
@@ -214,7 +216,7 @@ export default function NewEvento() {
   return (
     <div className="content-wrapper fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button className="icon-btn" onClick={() => navigate(isEditMode ? `/eventos/${eventId}` : '/eventos')}><ArrowLeft size={18} /></button>
+        <button className="icon-btn" onClick={goBack}><ArrowLeft size={18} /></button>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>
             <CalendarDays size={20} style={{ verticalAlign: 'middle', marginRight: 8 }} />{isEditMode ? 'Editar Evento' : 'Nuevo Evento'}
