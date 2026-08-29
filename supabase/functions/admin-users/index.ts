@@ -6,7 +6,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const ALLOWED_ORIGINS = ['http://localhost:5176', 'https://reportes.kabbiin.com']
+const ALLOWED_ORIGINS = ['http://localhost:5176', 'https://reportes.simec-cr.com']
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get('origin') ?? ''
@@ -28,7 +28,8 @@ function json(body: unknown, status: number, cors: Record<string, string>) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const VALID_ROLES = ['admin', 'tecnico', 'cliente']
+// No 'cliente' role in this deployment (055) -- admin/técnico only.
+const VALID_ROLES = ['admin', 'tecnico']
 const REPORT_BUCKETS = ['report-photos', 'signatures', 'report-pdfs', 'equipment-files']
 
 // Shared by deleteUserReports and deleteReports below -- service_role, not
@@ -126,7 +127,7 @@ serve(async (req) => {
       })
       if (error) throw error
 
-      if (role === 'admin' || role === 'cliente') {
+      if (role === 'admin') {
         const { error: roleErr } = await adminClient.from('profiles').update({ role }).eq('id', data.user.id)
         if (roleErr) throw roleErr
       }

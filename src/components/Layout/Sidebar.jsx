@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, CalendarPlus, FileText, LogOut, ShieldCheck, BarChart3, Users, Sun, Moon, Settings, CalendarDays, Boxes } from 'lucide-react'
+import { LayoutDashboard, CalendarPlus, FileText, LogOut, ShieldCheck, BarChart3, Users, Sun, Moon, Settings, CalendarDays } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { getPublicBranding } from '../../services/supabaseDB'
@@ -106,13 +106,6 @@ export default function Sidebar({ mobileOpen, onClose, collapsed }) {
             </NavLink>
           </li>
         )}
-        <li>
-          <NavLink to="/inventario" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            onClick={onClose}>
-            <Boxes size={18} className="nav-icon" />
-            {isClient ? 'Mis Equipos' : 'Inventario'}
-          </NavLink>
-        </li>
         {isAdmin && (
           <li>
             <NavLink to="/admin/usuarios" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}

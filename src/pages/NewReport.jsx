@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Camera, X, Loader } from 'lucide-react'
 import {
   createReport, updateReport, getReport, getPhotoUrl, getTechnicians, getStaffDirectory, getAllReportClients, getEvents,
   uploadEquipmentFile, patchReportEquipmentData,
 } from '../services/supabaseDB'
-import { listEquipos } from '../services/equiposService'
-import { getInventoryFields } from '../constants/equipmentInventoryFields'
 import { useAuth } from '../contexts/AuthContext'
 import { MODULES, EQUIPMENT_MODULES, getDefaultEquipmentData, extractPendingFile } from '../constants/equipmentModules'
 import GenericModuleForm from '../components/EquipmentGeneric/GenericModuleForm'
@@ -108,13 +106,6 @@ export default function NewReport() {
   const [selectedClientKey, setSelectedClientKey] = useState('')
   const [eventOptions, setEventOptions] = useState([])
 
-  // Inventario de Equipos (052/054) -- lets "Datos del Equipo" autofill from
-  // an already-registered equipo instead of retyping its identity fields.
-  // Not a report field itself, so it isn't loaded/saved with the report --
-  // just a one-shot picker (see selectInventoryEquipo below).
-  const [inventoryEquipos, setInventoryEquipos] = useState([])
-  const [selectedEquipoId, setSelectedEquipoId] = useState('')
-
   // ── Load technician/client directories for their dropdowns ──
   // Admin picks from técnicos + admins (including themself); a técnico only
   // ever sees técnicos (see rowTechOptions below for the per-row narrowing).
@@ -127,59 +118,7 @@ export default function NewReport() {
     // linked (e.g. separate reports per piece of equipment serviced in the
     // same visit), so this isn't filtered down to "unlinked" events only.
     getEvents().then(setEventOptions).catch(err => logError('NewReport.getEvents', err))
-    listEquipos().then(setInventoryEquipos).catch(err => logError('NewReport.listEquipos', err))
   }, [isAdmin])
-
-  // Only equipos matching the selected module -- a report about a UPS has
-  // no business autofilling from a registered generador. For AC specifically,
-  // narrow further by the chosen "Tipo de Equipo a Revisar" (equipment_subtype)
-  // once one's picked -- a minisplit report shouldn't offer a registered
-  // central unit as an autofill source.
-  const matchingEquipos = useMemo(
-    () => inventoryEquipos.filter(eq => (
-      eq.equipment_type === selectedModule
-      && (selectedModule !== 'ac' || !equipmentData?.equipment_subtype || eq.equipment_data?.equipment_subtype === equipmentData.equipment_subtype)
-    )),
-    [inventoryEquipos, selectedModule, equipmentData?.equipment_subtype]
-  )
-
-  // A selection from one module's list is meaningless once the técnico
-  // switches equipment type -- drop it rather than leave a stale id pointing
-  // at an equipo that's no longer even in the dropdown.
-  useEffect(() => { setSelectedEquipoId('') }, [selectedModule])
-
-  // Same "picking clears back out on deselect" shape as selectRegisteredClient
-  // above. brand/model come from the equipo (required on every one,
-  // NewEquipo.jsx) or blank back out; serial/asset only ever get set if the
-  // equipo actually has one (Inventario no longer collects them, so most
-  // won't) and are left alone on deselect, since we can't tell a value that
-  // came from the pick apart from one the técnico typed afterwards anyway.
-  //
-  // Where the equipment_data merge lands depends on the module: UPS/AC keep
-  // their equipmentInfoFields flat on equipmentData itself (equipmentData.phase_type,
-  // equipmentData.equipment_subtype...), matching how NewEquipo.jsx's
-  // CUSTOM_INVENTORY_FIELDS stores equipo.equipment_data. The four "generic"
-  // modules (generador/batería/ats/tablero) instead nest theirs under
-  // equipment_info (GenericModuleForm.jsx), even though NewEquipo.jsx's
-  // getInventoryFields pulls those exact same keys from equipmentInfoFields
-  // and still stores equipo.equipment_data flat -- so the merge target has to
-  // switch to match, or this would silently write fields GenericModuleForm
-  // never reads.
-  function selectInventoryEquipo(equipoId) {
-    setSelectedEquipoId(equipoId)
-    const eq = matchingEquipos.find(e => e.id === equipoId)
-    setBrand(eq?.brand || '')
-    setModel(eq?.model || '')
-    if (eq?.serial_number) setSerial(eq.serial_number)
-    if (eq?.asset_number) setAsset(eq.asset_number)
-    const isGenericModule = EQUIPMENT_MODULES[selectedModule]?.kind === 'generic'
-    const values = eq ? eq.equipment_data : Object.fromEntries(getInventoryFields(selectedModule).map(f => [f.key, '']))
-    setEquipmentData(prev => (
-      isGenericModule
-        ? { ...prev, equipment_info: { ...prev.equipment_info, ...values } }
-        : { ...prev, ...values }
-    ))
-  }
 
   // Keeps the dropdown showing the right option selected whenever
   // clientUserId gets set out from under it without going through
@@ -981,23 +920,6 @@ export default function NewReport() {
       {!isTrabajosVarios && (
       <div className="card" style={{ marginBottom:20 }}>
         <p className="section-tag">Datos del Equipo – {module?.name}</p>
-        {matchingEquipos.length > 0 && (
-          <div className="form-group" style={{ marginBottom:16 }}>
-            <label className="form-label">Equipo del inventario (opcional)</label>
-            <select className="form-control form-control-select" value={selectedEquipoId}
-              onChange={e => selectInventoryEquipo(e.target.value)}>
-              <option value="">Sin seleccionar</option>
-              {matchingEquipos.map(eq => (
-                <option key={eq.id} value={eq.id}>
-                  {eq.brand} {eq.model}{eq.serial_number ? ` · Serie ${eq.serial_number}` : ''}
-                </option>
-              ))}
-            </select>
-            <p style={{ fontSize: 12, color: 'var(--clr-text-light)', marginTop: 4 }}>
-              Autocompleta marca, modelo y los datos específicos de abajo con los de este equipo registrado.
-            </p>
-          </div>
-        )}
         <div className="form-row form-row-3">
           <div className="form-group">
             <label className="form-label">Marca <span>*</span></label>

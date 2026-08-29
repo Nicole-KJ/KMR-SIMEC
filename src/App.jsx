@@ -19,9 +19,6 @@ import LiberarEspacio from './pages/LiberarEspacio'
 import Eventos from './pages/Eventos'
 import NewEvento from './pages/NewEvento'
 import EventDetail from './pages/EventDetail'
-import InventarioEquipos from './pages/InventarioEquipos'
-import NewEquipo from './pages/NewEquipo'
-import EquipoDetail from './pages/EquipoDetail'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -84,9 +81,6 @@ export default function App() {
         <Route path="eventos/nuevo" element={<NotClientRoute><NewEvento /></NotClientRoute>} />
         <Route path="eventos/:id" element={<NotClientRoute><EventDetail /></NotClientRoute>} />
         <Route path="eventos/:id/editar" element={<NotClientRoute><NewEvento /></NotClientRoute>} />
-        <Route path="inventario" element={<InventarioEquipos />} />
-        <Route path="inventario/nuevo" element={<NewEquipo />} />
-        <Route path="inventario/:id" element={<EquipoDetail />} />
       </Route>
     </Routes>
   )

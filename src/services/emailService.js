@@ -1,7 +1,7 @@
 /**
  * emailService.js – Sends the report (with the PDF attached) through the
  * `send-report-email` Edge Function, which relays it via Resend under
- * reportes@simec-cr.com. Requires RESEND_API_KEY to be configured as an
+ * info@simec-cr.com. Requires RESEND_API_KEY to be configured as an
  * Edge Function secret and the simec-cr.com domain verified in Resend.
  */
 import { supabase } from '../lib/supabase'

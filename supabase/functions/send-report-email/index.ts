@@ -2,14 +2,14 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-const FROM_EMAIL = 'K Maintenance Report <info@kabbiin.com>'
+const FROM_EMAIL = 'K Maintenance Report <info@simec-cr.com>'
 
 // Auto-injected into every Supabase Edge Function – no manual secret needed.
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const ALLOWED_ORIGINS = ['http://localhost:5176', 'https://reportes.kabbiin.com']
+const ALLOWED_ORIGINS = ['http://localhost:5176', 'https://reportes.simec-cr.com']
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get('origin') ?? ''

@@ -205,7 +205,6 @@ export default function AdminUsers() {
                           onChange={e => handleRoleChange(u.id, e.target.value)}
                         >
                           <option value="tecnico">Técnico</option>
-                          <option value="cliente">Cliente</option>
                           <option value="admin">Administrador</option>
                         </select>
                       </td>
