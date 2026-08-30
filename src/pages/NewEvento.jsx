@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, Loader } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { getEvent, createEvent, updateEvent, getAllReportClients, getTechnicians, getStaffDirectory, getNextEventCode } from '../services/supabaseDB'
+import { notifyEventTechnician } from '../services/emailService'
 import { isBlank, todayISODate } from '../utils/validation'
 import { logError } from '../utils/logger'
 import { SERVICE_TYPES } from '../constants/serviceTypes'
@@ -45,6 +46,11 @@ export default function NewEvento() {
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState('pendiente')
   const [loadedTechnicianName, setLoadedTechnicianName] = useState('')
+  // The técnico this event had when the edit screen opened -- compared
+  // against the picked technicianId on save so notifyEventTechnician only
+  // fires when a técnico is newly assigned or actually changed, not on
+  // every unrelated edit to an event that already had the same one.
+  const [originalTechnicianId, setOriginalTechnicianId] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -84,6 +90,7 @@ export default function NewEvento() {
         setEventDate(ev.event_date)
         setEventTime(ev.event_time ? ev.event_time.slice(0, 5) : '')
         setTechnicianId(ev.technician_id || '')
+        setOriginalTechnicianId(ev.technician_id || '')
         setClientUserId(ev.client_user_id || '')
         setClientName(ev.client_name || '')
         setClientAddress(ev.client_address || '')
@@ -181,6 +188,18 @@ export default function NewEvento() {
     try {
       const saved = isEditMode ? await updateEvent(eventId, payload) : await createEvent(payload, user.id)
       showToast(isEditMode ? 'Evento actualizado' : 'Evento creado', 'success')
+
+      // Email the técnico only when one is newly assigned or actually
+      // reassigned -- never on creation without one (still 'pendiente'),
+      // and never again on an edit that leaves the same técnico in place.
+      // Fire-and-forget: a notification hiccup shouldn't block navigation
+      // away from an otherwise successful save, just surface it if it fails.
+      if (technicianId && (!isEditMode || technicianId !== originalTechnicianId)) {
+        notifyEventTechnician(saved.id).then(result => {
+          if (!result.success) showToast('Evento guardado, pero no se pudo notificar al técnico: ' + result.message)
+        })
+      }
+
       navigate(`/eventos/${saved.id}`)
     } catch (err) {
       logError('NewEvento.handleSave', err)
