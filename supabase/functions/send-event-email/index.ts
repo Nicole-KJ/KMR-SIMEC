@@ -82,9 +82,12 @@ serve(async (req) => {
       return json({ error: 'No autenticado' }, 401, cors)
     }
 
-    const { eventId } = await req.json()
+    const { eventId, technicianIds } = await req.json()
     if (!eventId || typeof eventId !== 'string' || !UUID_RE.test(eventId)) {
       return json({ error: 'eventId inválido' }, 400, cors)
+    }
+    if (!Array.isArray(technicianIds) || technicianIds.length === 0 || !technicianIds.every((id: unknown) => typeof id === 'string' && UUID_RE.test(id))) {
+      return json({ error: 'technicianIds inválido' }, 400, cors)
     }
 
     // service_role from here on -- the caller just created/updated this
@@ -103,14 +106,18 @@ serve(async (req) => {
       return json({ error: 'Evento no encontrado' }, 404, cors)
     }
 
-    if (!event.technician_id) {
-      return json({ error: 'El evento no tiene técnico asignado' }, 400, cors)
+    // One email per técnico given -- events have no single "primary"
+    // técnico (059, event_technicians is a plain add/remove list), so this
+    // resolves whichever ids the caller says are newly assigned. A técnico
+    // whose email can't be resolved is silently skipped rather than
+    // failing the whole notification for the others.
+    const technicianEmails: string[] = []
+    for (const technicianId of technicianIds as string[]) {
+      const { data: techData } = await adminClient.auth.admin.getUserById(technicianId)
+      if (techData?.user?.email) technicianEmails.push(techData.user.email)
     }
-
-    const { data: techData, error: techErr } = await adminClient.auth.admin.getUserById(event.technician_id)
-    const technicianEmail = techData?.user?.email
-    if (techErr || !technicianEmail) {
-      return json({ error: 'No se pudo obtener el correo del técnico' }, 500, cors)
+    if (technicianEmails.length === 0) {
+      return json({ error: 'No se pudo obtener el correo de ningún técnico' }, 500, cors)
     }
 
     if (!RESEND_API_KEY) {
@@ -126,7 +133,6 @@ serve(async (req) => {
     const safeEquipmentType = escapeHtml(EQUIPMENT_TYPE_LABELS[event.equipment_type as string] ?? event.equipment_type ?? '—')
     const safeClientName = escapeHtml(event.client_name ?? '—')
     const safeClientAddress = escapeHtml(event.client_address ?? '—')
-    const safeTechnicianName = escapeHtml(event.technician_name ?? '—')
     const safeNotes = escapeHtml(event.notes ?? '')
 
     // Company branding (Personalización) is optional -- same fallback/error
@@ -150,7 +156,7 @@ serve(async (req) => {
 
     const emailPayload = {
       from: FROM_EMAIL,
-      to: [technicianEmail],
+      to: technicianEmails,
       subject: `Nuevo evento asignado: ${safeEventCode} · ${safeEventName}`,
       html: `
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
@@ -160,7 +166,7 @@ serve(async (req) => {
             <p style="margin:0;opacity:.85;font-size:13px">Nuevo evento asignado</p>
           </div>
           <div style="background:white;padding:24px;border:1px solid #e5e7eb;border-top:none">
-            <p>Hola <strong>${safeTechnicianName}</strong>,</p>
+            <p>Hola,</p>
             <p>Se te ha asignado una visita de servicio. Estos son los detalles:</p>
             <table style="width:100%;border-collapse:collapse;margin:16px 0">
               <tr><td style="padding:8px;background:#f3f4f8;border-radius:6px;font-size:12px;color:#6b7280;font-weight:700">CÓDIGO</td>
@@ -204,7 +210,7 @@ serve(async (req) => {
       throw new Error('No se pudo enviar el correo')
     }
 
-    return json({ success: true, id: data.id, message: `Correo enviado a ${technicianEmail}` }, 200, cors)
+    return json({ success: true, id: data.id, message: `Correo enviado a ${technicianEmails.join(', ')}` }, 200, cors)
 
   } catch (err) {
     console.error('send-event-email error:', err instanceof Error ? err.message : String(err))

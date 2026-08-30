@@ -55,15 +55,16 @@ export async function sendReportByEmail(report, recipientEmail) {
   }
 }
 
-// Notifies the técnico assigned to an event, via the `send-event-email` Edge
-// Function -- called by NewEvento.jsx right after creating an event with a
-// técnico already set, or after an edit that assigns/reassigns one. Fetches
-// the event's own current details server-side (never trusts what the client
-// happens to have in memory), so only the id needs to be passed here.
-export async function notifyEventTechnician(eventId) {
+// Notifies whichever técnicos are newly listed on an event, via the
+// `send-event-email` Edge Function -- called by NewEvento.jsx right after
+// creating an event with técnicos already set, or after an edit that adds
+// one or more new técnicos to the roster. Fetches the event's own current
+// details server-side (never trusts what the client happens to have in
+// memory), so only the event id + which técnico ids to notify are passed.
+export async function notifyEventTechnician(eventId, technicianIds) {
   try {
     const { data, error } = await supabase.functions.invoke('send-event-email', {
-      body: { eventId },
+      body: { eventId, technicianIds },
     })
 
     if (error) {
@@ -72,7 +73,7 @@ export async function notifyEventTechnician(eventId) {
     }
     if (data?.error) throw new Error(data.error)
 
-    return { success: true, message: data?.message ?? 'Correo enviado al técnico' }
+    return { success: true, message: data?.message ?? 'Correo enviado a los técnicos' }
   } catch (err) {
     logError('emailService.notifyEventTechnician', err)
     return { success: false, message: err.message ?? 'No se pudo enviar el correo' }

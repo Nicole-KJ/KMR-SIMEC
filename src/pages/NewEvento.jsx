@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, Loader } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Loader, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { getEvent, createEvent, updateEvent, getAllReportClients, getTechnicians, getStaffDirectory, getNextEventCode } from '../services/supabaseDB'
@@ -12,13 +12,17 @@ import { MODULES } from '../constants/equipmentModules'
 import { EVENT_STATUSES } from '../constants/eventStatus'
 import { useBackNavigate } from '../hooks/useBackNavigate'
 
+// Generador de IDs compatible con HTTP y HTTPS
+const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+const emptyTech = () => ({ id: genId(), technician_id: '', technician_name: '' })
+
 export default function NewEvento() {
   const navigate = useNavigate()
   const goBack = useBackNavigate()
   const { id: eventId } = useParams()
   const isEditMode = Boolean(eventId)
   const [searchParams] = useSearchParams()
-  const { user, profile, isAdmin } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { showToast } = useToast()
 
   const [clientOptions, setClientOptions] = useState([])
@@ -37,7 +41,13 @@ export default function NewEvento() {
   const [eventName, setEventName] = useState('')
   const [eventDate, setEventDate] = useState(searchParams.get('fecha') || todayISODate())
   const [eventTime, setEventTime] = useState(searchParams.get('hora') || '')
-  const [technicianId, setTechnicianId] = useState(isAdmin ? '' : (user?.id ?? ''))
+  // Técnicos: an add/remove list, all equal (no "primary" técnico) -- same
+  // shape as Nuevo Reporte's own Técnicos section (event_technicians, 059).
+  // A técnico creating a new event defaults to listing themself, same
+  // starting point the old single-técnico dropdown had.
+  const [technicians, setTechnicians] = useState([
+    isAdmin ? emptyTech() : { id: genId(), technician_id: user?.id ?? '', technician_name: '' },
+  ])
   const [clientUserId, setClientUserId] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientAddress, setClientAddress] = useState('')
@@ -45,12 +55,10 @@ export default function NewEvento() {
   const [clientEmail, setClientEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState('pendiente')
-  const [loadedTechnicianName, setLoadedTechnicianName] = useState('')
-  // The técnico this event had when the edit screen opened -- compared
-  // against the picked technicianId on save so notifyEventTechnician only
-  // fires when a técnico is newly assigned or actually changed, not on
-  // every unrelated edit to an event that already had the same one.
-  const [originalTechnicianId, setOriginalTechnicianId] = useState('')
+  // The técnico ids this event had when the edit screen opened -- compared
+  // against the current list on save so notifyEventTechnician only emails
+  // whoever's newly added, never someone already notified on a past save.
+  const [originalTechnicianIds, setOriginalTechnicianIds] = useState(new Set())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -89,8 +97,11 @@ export default function NewEvento() {
         setEventName(ev.event_name || '')
         setEventDate(ev.event_date)
         setEventTime(ev.event_time ? ev.event_time.slice(0, 5) : '')
-        setTechnicianId(ev.technician_id || '')
-        setOriginalTechnicianId(ev.technician_id || '')
+        const loadedTechs = ev.technicians?.length
+          ? ev.technicians.map(t => ({ id: genId(), technician_id: t.technician_id || '', technician_name: t.technician_name || '' }))
+          : [emptyTech()]
+        setTechnicians(loadedTechs)
+        setOriginalTechnicianIds(new Set(loadedTechs.map(t => t.technician_id).filter(Boolean)))
         setClientUserId(ev.client_user_id || '')
         setClientName(ev.client_name || '')
         setClientAddress(ev.client_address || '')
@@ -98,7 +109,6 @@ export default function NewEvento() {
         setClientEmail(ev.client_email || '')
         setNotes(ev.notes || '')
         setStatus(ev.status)
-        setLoadedTechnicianName(ev.technician_name || '')
       })
       .catch(err => { logError('NewEvento.loadEvent', err); setLoadError(err) })
       .finally(() => setLoadingEvent(false))
@@ -108,19 +118,6 @@ export default function NewEvento() {
     if (isEditMode) loadEventForEdit()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, eventId])
-
-  // A técnico can only ever schedule for themself (enforced server-side too,
-  // 035) -- same rule as NewReport.jsx's técnico dropdown and Eventos.jsx.
-  const technicianPickOptions = isAdmin ? staffOptions : staffOptions.filter(o => o.id === user?.id)
-
-  // technician_name is derived from staffOptions rather than tracked in its
-  // own state -- staffOptions loads async, and a técnico's own name never
-  // needs an explicit selection to appear once it does. loadedTechnicianName
-  // is the last-resort fallback in edit mode, for a técnico who's since lost
-  // staff access and no longer shows up in staffOptions.
-  const technicianName = staffOptions.find(o => o.id === technicianId)?.full_name
-    ?? (technicianId === user?.id ? profile?.full_name : '')
-    ?? loadedTechnicianName ?? ''
 
   // key is clientOptions' array index, not client_user_id -- unlinked
   // clients don't have one (several would collide on null). Picking a
@@ -143,11 +140,30 @@ export default function NewEvento() {
     if (picked.email) setClientEmail(picked.email)
   }
 
+  // ── Técnicos table handlers (mirrors NewReport.jsx's own) ──
+  function selectTech(id, technicianId) {
+    const opt = staffOptions.find(o => o.id === technicianId)
+    setTechnicians(prev => prev.map(t => t.id === id
+      ? { ...t, technician_id: technicianId, technician_name: opt?.full_name ?? '' }
+      : t))
+  }
+  // Admin can list anyone (técnico or admin, self included) in every row. A
+  // técnico can only ever name themself as the first técnico -- they can't
+  // schedule someone else's work -- and only gets the full técnico list to
+  // add a colleague once that first row exists, for visits 2+ people work.
+  function rowTechOptions(index) {
+    if (isAdmin) return staffOptions
+    if (index === 0) return staffOptions.filter(o => o.id === user?.id)
+    return staffOptions
+  }
+  function addTech() { setTechnicians(prev => [...prev, emptyTech()]) }
+  function removeTech(id) { setTechnicians(prev => prev.filter(t => t.id !== id)) }
+
   // Required fields are tiered by status: Pendiente only needs the basics
-  // below; técnico is only required once the event has actually moved to
-  // en_progreso (or beyond -- completado/cancelado both imply the visit
-  // got at least that far). Creating an event always saves as Pendiente,
-  // so this second tier only ever applies in edit mode.
+  // below; al menos un técnico is only required once the event has
+  // actually moved to en_progreso (or beyond -- completado/cancelado both
+  // imply the visit got at least that far). Creating an event always saves
+  // as Pendiente, so this second tier only ever applies in edit mode.
   async function handleSave(e) {
     e.preventDefault()
     if (isBlank(serviceType)) { setFormError('Selecciona el tipo de evento.'); return }
@@ -159,13 +175,12 @@ export default function NewEvento() {
     if (isBlank(clientName)) { setFormError('El nombre del cliente es requerido.'); return }
     if (isBlank(clientAddress)) { setFormError('La dirección es requerida.'); return }
     if (isBlank(clientEmail)) { setFormError('El correo del cliente es requerido.'); return }
-    if (status !== 'pendiente' && isBlank(technicianId)) { setFormError('Selecciona un técnico.'); return }
+    const hasTechnician = technicians.some(t => !isBlank(t.technician_name))
+    if (status !== 'pendiente' && !hasTechnician) { setFormError('Agrega al menos un técnico.'); return }
 
     const payload = {
       // service_type/equipment_type are validated non-blank above, but kept
-      // as `|| null` since both columns have a "null or one of these" CHECK
-      // and technician_id (a uuid column, still optional while pendiente)
-      // needs the same real-null treatment.
+      // as `|| null` since both columns have a "null or one of these" CHECK.
       service_type: serviceType || null,
       equipment_type: equipmentType || null,
       event_code: eventCode.trim(),
@@ -177,8 +192,7 @@ export default function NewEvento() {
       client_address: clientAddress.trim(),
       client_phone: clientPhone.trim(),
       client_email: clientEmail.trim(),
-      technician_id: technicianId || null,
-      technician_name: technicianId ? technicianName : '',
+      technicians: technicians.filter(t => t.technician_name.trim()),
       notes: notes.trim(),
       status,
     }
@@ -189,14 +203,16 @@ export default function NewEvento() {
       const saved = isEditMode ? await updateEvent(eventId, payload) : await createEvent(payload, user.id)
       showToast(isEditMode ? 'Evento actualizado' : 'Evento creado', 'success')
 
-      // Email the técnico only when one is newly assigned or actually
-      // reassigned -- never on creation without one (still 'pendiente'),
-      // and never again on an edit that leaves the same técnico in place.
-      // Fire-and-forget: a notification hiccup shouldn't block navigation
-      // away from an otherwise successful save, just surface it if it fails.
-      if (technicianId && (!isEditMode || technicianId !== originalTechnicianId)) {
-        notifyEventTechnician(saved.id).then(result => {
-          if (!result.success) showToast('Evento guardado, pero no se pudo notificar al técnico: ' + result.message)
+      // Email only whoever's newly added to the roster -- never someone
+      // already on it before this save. Fire-and-forget: a notification
+      // hiccup shouldn't block navigation away from an otherwise
+      // successful save, just surface it if it fails.
+      const newTechnicianIds = [...new Set(
+        payload.technicians.map(t => t.technician_id).filter(id => id && !originalTechnicianIds.has(id))
+      )]
+      if (newTechnicianIds.length > 0) {
+        notifyEventTechnician(saved.id, newTechnicianIds).then(result => {
+          if (!result.success) showToast('Evento guardado, pero no se pudo notificar a los técnicos: ' + result.message)
         })
       }
 
@@ -339,17 +355,49 @@ export default function NewEvento() {
         </div>
 
         <div className="card" style={{ marginBottom: 20 }}>
-          <p className="section-tag">Técnico</p>
-          <div className="form-group">
-            <label className="form-label">Técnico asignado {status !== 'pendiente' && <span>*</span>}</label>
-            <select className="form-control form-control-select" value={technicianId} onChange={e => setTechnicianId(e.target.value)}>
-              <option value="">Seleccionar técnico</option>
-              {technicianId && !technicianPickOptions.some(o => o.id === technicianId) &&
-                <option value={technicianId}>{technicianName}</option>}
-              {technicianPickOptions.map(o => (
-                <option key={o.id} value={o.id}>{o.full_name}{o.role === 'admin' ? ' (Admin)' : ''}</option>
-              ))}
-            </select>
+          <div className="section-header">
+            <p className="section-tag" style={{ margin: 0 }}>Técnicos {status !== 'pendiente' && <span style={{ color: 'var(--clr-danger)' }}>*</span>}</p>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={addTech} style={{ marginLeft: 'auto' }}>
+              <Plus size={14} /> Agregar técnico
+            </button>
+          </div>
+          <div className="parts-table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nombre del técnico</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {technicians.map((t, i) => {
+                  const rowOptions = rowTechOptions(i)
+                  const idIsVisible = t.technician_id && rowOptions.some(o => o.id === t.technician_id)
+                  return (
+                    <tr key={t.id}>
+                      <td style={{ width: 32, color: 'var(--clr-text-light)' }}>{i + 1}</td>
+                      <td>
+                        <select className="form-control form-control-select"
+                          value={idIsVisible ? t.technician_id : (t.technician_name ? 'legacy' : '')}
+                          onChange={e => selectTech(t.id, e.target.value)}>
+                          <option value="">Seleccionar técnico</option>
+                          {t.technician_name && !idIsVisible &&
+                            <option value="legacy">{t.technician_name}</option>}
+                          {rowOptions.map(o => <option key={o.id} value={o.id}>{o.full_name}{o.role === 'admin' ? ' (Admin)' : ''}</option>)}
+                        </select>
+                      </td>
+                      <td>
+                        {technicians.length > 1 &&
+                          <button type="button" className="icon-btn" onClick={() => removeTech(t.id)} style={{ borderColor: 'transparent', color: 'var(--clr-danger)' }}>
+                            <Trash2 size={14} />
+                          </button>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 

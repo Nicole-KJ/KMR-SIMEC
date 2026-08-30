@@ -12,6 +12,10 @@ import { withRetry } from '../utils/retry'
 // different técnico than this report) -- ReportDetail.jsx treats that the
 // same as "no event linked" rather than erroring.
 const REPORT_SELECT = '*, technicians:report_technicians(*), parts:report_parts(*), photos:report_photos(*), event:service_events(id, event_code, event_name, event_date, event_time, client_name, status)'
+
+// technicians: every técnico on this event (event_technicians, 059) -- all
+// equal, no "primary" técnico, same shape as service_reports/report_technicians.
+const EVENT_SELECT = '*, technicians:event_technicians(*)'
 const PHOTO_BUCKET = 'report-photos'
 const AVATAR_BUCKET = 'avatars'
 const SIGNATURE_BUCKET = 'signatures'
@@ -642,13 +646,16 @@ export async function getNextEventCode() {
   return data
 }
 
-// No client-side role filter needed -- RLS already scopes this to the
-// caller's own (technician_id or created_by) events, or everything if admin.
+// No client-side role filter needed -- RLS already scopes this to events
+// the caller is staff on (is_event_staff, 059), or everything if admin.
+// Embeds technicians too -- NewReport.jsx's event-prefill (creating a
+// report from an event) needs the full roster, not just the summary
+// fields eventOptionLabel itself renders.
 export async function getEvents() {
   return withRetry(async () => {
     const { data, error } = await supabase
       .from('service_events')
-      .select('*')
+      .select(EVENT_SELECT)
       .order('event_date', { ascending: true })
     if (error) throw error
     return data
@@ -659,7 +666,7 @@ export async function getEvent(eventId) {
   return withRetry(async () => {
     const { data, error } = await supabase
       .from('service_events')
-      .select('*')
+      .select(EVENT_SELECT)
       .eq('id', eventId)
       .single()
     if (error) throw error
@@ -684,24 +691,47 @@ export async function getReportsForEvent(eventId) {
 }
 
 export async function createEvent(eventData, userId) {
-  const { data, error } = await supabase
+  const { technicians = [], ...fields } = eventData
+  const { data: event, error } = await supabase
     .from('service_events')
-    .insert({ ...eventData, created_by: userId })
+    .insert({ ...fields, created_by: userId })
     .select()
     .single()
   if (error) throw error
-  return data
+
+  await insertEventTechnicians(event.id, technicians)
+  return getEvent(event.id)
 }
 
 export async function updateEvent(eventId, eventData) {
-  const { data, error } = await supabase
-    .from('service_events')
-    .update(eventData)
-    .eq('id', eventId)
-    .select()
-    .single()
+  const { technicians, ...fields } = eventData
+
+  const { error } = await supabase.from('service_events').update(fields).eq('id', eventId)
   if (error) throw error
-  return data
+
+  // technicians is only present when the caller actually means to replace
+  // the roster (NewEvento.jsx's full save) -- handleStatusChange (EventDetail.jsx)
+  // only ever sends { status }, and shouldn't touch it.
+  if (technicians !== undefined) {
+    const { error: delErr } = await supabase.from('event_technicians').delete().eq('event_id', eventId)
+    if (delErr) throw delErr
+    await insertEventTechnicians(eventId, technicians)
+  }
+
+  return getEvent(eventId)
+}
+
+async function insertEventTechnicians(eventId, technicians) {
+  const rows = technicians
+    .filter(t => t.technician_name?.trim())
+    .map(t => ({
+      event_id: eventId,
+      technician_id: t.technician_id || null,
+      technician_name: t.technician_name,
+    }))
+  if (rows.length === 0) return
+  const { error } = await supabase.from('event_technicians').insert(rows)
+  if (error) throw error
 }
 
 export async function deleteEvent(eventId) {

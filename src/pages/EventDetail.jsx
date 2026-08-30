@@ -206,8 +206,12 @@ export default function EventDetail() {
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <p className="section-tag">Técnico</p>
-        <p style={{ fontSize: 14 }}>{event.technician_name || '—'}</p>
+        <p className="section-tag">Técnicos</p>
+        {event.technicians?.length ? (
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {event.technicians.map(t => <li key={t.id} style={{ fontSize: 14 }}>{t.technician_name}</li>)}
+          </ul>
+        ) : <p style={{ fontSize: 14, color: 'var(--clr-text-light)' }}>—</p>}
       </div>
 
       {event.notes && (

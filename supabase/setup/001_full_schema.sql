@@ -1,9 +1,9 @@
 -- ============================================================
 --  SIMEC Service Reports – Consolidated baseline schema
 --  Equivalent end-state of supabase/migrations/001_*.sql through
---  058_unlinked_clients_include_events.sql, collapsed into ONE file so
---  a brand-new Supabase project can be bootstrapped in a single run
---  instead of applying all 58 migrations one by one.
+--  059_event_multiple_technicians.sql, collapsed into ONE file so a
+--  brand-new Supabase project can be bootstrapped in a single run
+--  instead of applying all 59 migrations one by one.
 --
 --  USE THIS FILE ONLY ON A FRESH, EMPTY SUPABASE PROJECT.
 --  Run it once in the SQL Editor (or `supabase db execute -f`).
@@ -73,8 +73,6 @@ create table if not exists public.service_events (
   client_name     text,
   client_address  text,
   client_user_id  uuid references public.profiles(id),
-  technician_id   uuid references public.profiles(id),
-  technician_name text,
   notes           text,
   status          text not null default 'pendiente'
                     constraint service_events_status_check
@@ -98,6 +96,16 @@ create table if not exists public.service_events (
 create index if not exists service_events_date_idx on public.service_events (event_date);
 
 create sequence if not exists public.service_event_code_seq;
+
+-- ─── EVENT TECHNICIANS (all equal, no "primary" técnico) ────────
+create table if not exists public.event_technicians (
+  id              uuid primary key default gen_random_uuid(),
+  event_id        uuid not null references public.service_events(id) on delete cascade,
+  technician_id   uuid references public.profiles(id),
+  technician_name text
+);
+
+create index if not exists event_technicians_event_idx on public.event_technicians (event_id);
 
 -- ─── SERVICE REPORTS ──────────────────────────────────────────
 create table if not exists public.service_reports (
@@ -526,11 +534,37 @@ $$;
 revoke execute on function public.get_company_branding() from public;
 grant execute on function public.get_company_branding() to anon, authenticated;
 
+-- ─── is_event_staff() — events' equivalent of is_report_technician() ──
+-- True for the event's creator, an admin, or anyone listed on it via
+-- event_technicians (059) -- no signed-lock concept for events, so unlike
+-- reports there's no separate can_edit_* variant needed.
+create or replace function public.is_event_staff(p_event_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.service_events se
+    where se.id = p_event_id
+      and (
+        se.created_by = auth.uid()
+        or public.is_admin()
+        or exists (
+          select 1 from public.event_technicians et
+          where et.event_id = se.id and et.technician_id = auth.uid()
+        )
+      )
+  );
+$$;
+
+revoke execute on function public.is_event_staff(uuid) from public;
+grant execute on function public.is_event_staff(uuid) to authenticated;
+
 -- ─── get_unlinked_report_clients() — clients never linked to a portal account ─
 -- Draws from both service_reports and service_events (058) -- a client
--- typed free-text on either one shows up here. service_events has no
--- is_report_technician()-equivalent helper, so its branch inlines the same
--- visibility rule as "events: select" (035).
+-- typed free-text on either one shows up here.
 create or replace function public.get_unlinked_report_clients()
 returns table (client_name text, client_email text, client_address text)
 language sql
@@ -551,7 +585,7 @@ as $$
 
     select se.client_name, se.client_email, se.client_address, se.created_at
     from public.service_events se
-    where (se.technician_id = auth.uid() or se.created_by = auth.uid() or public.is_admin())
+    where public.is_event_staff(se.id)
       and se.client_user_id is null
       and se.client_name is not null
       and trim(se.client_name) <> ''
@@ -697,7 +731,7 @@ as $$
 
       select se.client_name, se.client_email, se.client_address, se.client_phone, se.created_at
       from public.service_events se
-      where (se.technician_id = auth.uid() or se.created_by = auth.uid() or public.is_admin())
+      where public.is_event_staff(se.id)
         and se.client_user_id is null
         and se.client_name is not null
         and trim(se.client_name) <> ''
@@ -748,6 +782,7 @@ alter table public.report_parts      enable row level security;
 alter table public.report_photos     enable row level security;
 alter table public.company_settings  enable row level security;
 alter table public.service_events    enable row level security;
+alter table public.event_technicians enable row level security;
 
 -- ─── profiles ────────────────────────────────────────────────────
 create policy "profiles: own read"   on public.profiles for select using (auth.uid() = id);
@@ -824,22 +859,35 @@ create policy "company_settings: admin update" on public.company_settings
 
 -- ─── service_events ──────────────────────────────────────────────
 create policy "events: select" on public.service_events
-  for select using (
-    technician_id = auth.uid() or created_by = auth.uid() or public.is_admin()
-  );
+  for select using (public.is_event_staff(id));
+-- Plain, direct column comparison alongside the policy above -- needed
+-- because is_event_staff() re-queries service_events by id, and that
+-- nested scan's snapshot can't see a row this same INSERT statement is
+-- still in the middle of writing. Evaluating directly against the tuple
+-- in hand has no such visibility problem -- same reason service_reports'
+-- own "reports: own read" (auth.uid() = technician_id) policy is a plain
+-- comparison rather than a function call.
+create policy "events: select own" on public.service_events
+  for select using (created_by = auth.uid());
+-- Técnicos are added via event_technicians right after creation (same
+-- create-row-then-insert-roster order as service_reports/report_technicians)
+-- -- this only ever needs to gate the event row itself.
 create policy "events: insert" on public.service_events
-  for insert with check (
-    created_by = auth.uid()
-    and (technician_id = auth.uid() or technician_id is null or public.is_admin())
-  );
+  for insert with check (created_by = auth.uid());
 create policy "events: update" on public.service_events
-  for update
-  using (technician_id = auth.uid() or created_by = auth.uid() or public.is_admin())
-  with check (technician_id = auth.uid() or public.is_admin());
+  for update using (public.is_event_staff(id)) with check (public.is_event_staff(id));
 create policy "events: delete" on public.service_events
-  for delete using (
-    technician_id = auth.uid() or created_by = auth.uid() or public.is_admin()
-  );
+  for delete using (public.is_event_staff(id));
+
+-- ─── event_technicians ───────────────────────────────────────────
+create policy "event_technicians: select" on public.event_technicians
+  for select using (public.is_event_staff(event_id));
+create policy "event_technicians: insert" on public.event_technicians
+  for insert with check (public.is_event_staff(event_id));
+create policy "event_technicians: update" on public.event_technicians
+  for update using (public.is_event_staff(event_id));
+create policy "event_technicians: delete" on public.event_technicians
+  for delete using (public.is_event_staff(event_id));
 
 -- ============================================================
 --  PART 5 — STORAGE BUCKETS & POLICIES

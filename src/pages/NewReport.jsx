@@ -169,18 +169,25 @@ export default function NewReport() {
       if (ev.client_phone) setClientPhone(ev.client_phone)
       if (ev.client_email) setClientEmail(ev.client_email)
     }
-    // Técnico asignado on the event fills the first (still-blank) Técnicos
-    // row -- same "don't overwrite something already picked/typed" guard as
-    // the client fields above. technician_id is looked up against this
+    // The event's own técnicos (event_technicians, 059 -- an event can have
+    // more than one) replace the still-blank, single default Técnicos row --
+    // same "don't overwrite something already picked/typed" guard as the
+    // client fields above. Each technician_id is looked up against this
     // técnico's own technicianOptions so RLS recognizes them as listed on
-    // the report (027) the same way picking from the dropdown would;
-    // ev.technician_name is only a fallback for the rare case they're not
-    // in that list (e.g. an admin's dropdown scope differs from a técnico's).
-    if (ev.technician_id && technicians.length === 1 && !technicians[0].technician_name.trim()) {
-      const opt = technicianOptions.find(o => o.id === ev.technician_id)
-      setTechnicians(prev => prev.map((t, i) => i === 0
-        ? { ...t, technician_id: ev.technician_id, technician_name: opt?.full_name ?? ev.technician_name ?? '' }
-        : t))
+    // the report (027) the same way picking from the dropdown would; the
+    // event's own saved technician_name is only a fallback for the rare
+    // case they're not in that list (e.g. an admin's dropdown scope differs
+    // from a técnico's).
+    if (ev.technicians?.length && technicians.length === 1 && !technicians[0].technician_name.trim()) {
+      setTechnicians(ev.technicians.map(t => {
+        const opt = technicianOptions.find(o => o.id === t.technician_id)
+        return {
+          id: genId(),
+          technician_id: t.technician_id || '',
+          technician_name: opt?.full_name ?? t.technician_name ?? '',
+          fault_time: '', arrival_pdv: '', departure_pdv: '', arrival_plant: '',
+        }
+      }))
     }
     // Auto-selects "Cliente registrado" to match, whether or not the match
     // is portal-linked -- clientOptions (051) is portal 'cliente' profiles
