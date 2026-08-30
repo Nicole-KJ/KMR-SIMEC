@@ -16,12 +16,15 @@ export default function Sidebar({ mobileOpen, onClose, collapsed }) {
   const [branding, setBranding] = useState(null)
   const [avatarBroken, setAvatarBroken] = useState(false)
 
-  // Only "cliente" sessions see the company's own branding here -- admins
-  // and técnicos always see the app's own K Maintenance Report identity.
+  // Custom logo (Personalización > Logo de la empresa) shows for every
+  // session once uploaded, same as Login's own logo -- falls back to the
+  // app's own K Maintenance Report logo when none is set. The "K
+  // Maintenance Report" brand *name* text next to it stays client-only
+  // (below) -- only the logo graphic itself is meant to reflect the
+  // company's own branding for staff.
   useEffect(() => {
-    if (!isClient) return
     getPublicBranding().catch(err => { logError('Sidebar.getPublicBranding', err); return null }).then(setBranding)
-  }, [isClient])
+  }, [])
 
   // avatar_url can point at a file that's since been removed from storage --
   // re-attempt on every url change, but fall back to initials if it 404s.
@@ -40,7 +43,7 @@ export default function Sidebar({ mobileOpen, onClose, collapsed }) {
       {/* Header / Brand */}
       <div className="sidebar-header">
         <div className="sidebar-logo-icon">
-          <img src={(isClient && branding?.logo_url) || logo} alt={(isClient && branding?.company_name) || 'K Maintenance Report'} />
+          <img src={branding?.logo_url || logo} alt={branding?.company_name || 'K Maintenance Report'} />
         </div>
         <div className="sidebar-brand">
           {isClient && branding?.company_name ? (
