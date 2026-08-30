@@ -342,18 +342,20 @@ export default function ReportDetail() {
             onClick={() => window.open(`/firma/${report.id}`, '_blank')}>
             <CheckCircle size={16} /> Ver Firma
           </button>
-        ) : (!isClient || report.status === 'completed') && (
-          // A client can only sign once staff has marked the report
-          // completed -- signing a draft would finalize work that isn't
-          // actually done yet. Staff keep the button at any pre-signed
-          // status, same as before.
+        ) : report.status === 'completed' && (
+          // A report can only be signed once it's marked completed --
+          // signing a draft would finalize work that isn't actually done
+          // yet. Enforced at the DB layer too (sign_report, 057) since the
+          // signing link is a public, unauthenticated URL -- this is just
+          // keeping the button consistent with what that RPC will actually
+          // allow, for staff and clients alike.
           <button className="btn btn-primary"
             style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 4px 14px rgba(16,185,129,0.35)' }}
             onClick={() => window.open(`/firma/${report.id}`, '_blank')}>
             <PenLine size={16} /> Firmar Reporte
           </button>
         )}
-        {!isClient && report.status !== 'signed' && (
+        {!isClient && report.status === 'completed' && (
           <button className="btn btn-secondary" onClick={copyLink}>
             <Share2 size={16} /> {copySuccess ? '¡Link Copiado!' : 'Copiar Link'}
           </button>

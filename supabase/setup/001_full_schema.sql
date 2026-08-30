@@ -1,9 +1,9 @@
 -- ============================================================
 --  SIMEC Service Reports – Consolidated baseline schema
 --  Equivalent end-state of supabase/migrations/001_*.sql through
---  056_remove_inventario_equipos.sql, collapsed into ONE file so a
---  brand-new Supabase project can be bootstrapped in a single run
---  instead of applying all 56 migrations one by one.
+--  057_sign_report_requires_completed.sql, collapsed into ONE file so
+--  a brand-new Supabase project can be bootstrapped in a single run
+--  instead of applying all 57 migrations one by one.
 --
 --  USE THIS FILE ONLY ON A FRESH, EMPTY SUPABASE PROJECT.
 --  Run it once in the SQL Editor (or `supabase db execute -f`).
@@ -424,6 +424,9 @@ end;
 $$;
 
 -- ─── sign_report() — public signing RPC, bypasses the edit-scope guard ─
+-- Only a 'completed' report can be signed (057) -- this also covers the
+-- already-signed case for free, since a signed row's status is 'signed',
+-- never 'completed'.
 create or replace function public.sign_report(
   p_report_id uuid,
   p_signer_name text,
@@ -445,7 +448,7 @@ begin
       status                = 'signed',
       pdf_storage_path      = null
   where id = p_report_id
-    and status <> 'signed';
+    and status = 'completed';
 end;
 $$;
 

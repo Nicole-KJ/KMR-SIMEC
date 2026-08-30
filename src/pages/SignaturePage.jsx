@@ -123,6 +123,23 @@ export default function SignaturePage() {
     </div>
   )
 
+  // A report can only be signed once it's marked completed (057, enforced
+  // in sign_report itself) -- this is the friendly version of that same
+  // rule for whoever opens the link before staff gets there, instead of
+  // showing the form and letting handleSave's generic error explain it.
+  if (report.status !== 'completed' && !saved) return (
+    <div className="signature-page">
+      <div className="signature-card" style={{ textAlign: 'center' }}>
+        <p style={{ fontSize: 40, marginBottom: 16 }}>⏳</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Reporte aún no está listo para firmar</h2>
+        <p style={{ color: '#6b7280', marginBottom: 20 }}>
+          El técnico todavía no ha marcado este informe como completado. Vuelve a intentarlo más tarde o contacta a nuestro equipo.
+        </p>
+        <button className="btn btn-primary" onClick={loadReport}>Reintentar</button>
+      </div>
+    </div>
+  )
+
   if (saved) return (
     <div className="signature-page">
       <div className="signature-card" style={{ textAlign: 'center' }}>
