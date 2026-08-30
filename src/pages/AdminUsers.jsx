@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { UserPlus, Loader, ShieldCheck, Ban, CheckCircle, AlertCircle, KeyRound, Trash2 } from 'lucide-react'
+import { UserPlus, Loader, ShieldCheck, Ban, CheckCircle, AlertCircle, KeyRound, Trash2, Search, X } from 'lucide-react'
 import { listUsers, inviteUser, setUserBanned, setUserPassword } from '../services/adminUsersService'
 import { setUserRole } from '../services/supabaseDB'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { logError } from '../utils/logger'
 import { usePagination } from '../hooks/usePagination'
+import { useUserFilters, ROLE_OPTIONS, STATUS_OPTIONS } from '../hooks/useUserFilters'
 import Pagination from '../components/Pagination'
 import DeleteUserModal from '../components/DeleteUserModal'
 
@@ -52,7 +53,11 @@ export default function AdminUsers() {
 
   useEffect(() => { loadUsers() }, [])
 
-  const { page, setPage, totalPages, pageItems: paginatedUsers } = usePagination(users)
+  const {
+    searchQuery, setSearchQuery, roleFilter, setRoleFilter, statusFilter, setStatusFilter,
+    hasActiveFilters, clearFilters, filteredUsers,
+  } = useUserFilters(users)
+  const { page, setPage, totalPages, pageItems: paginatedUsers } = usePagination(filteredUsers)
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -166,7 +171,39 @@ export default function AdminUsers() {
 
       {/* Users list */}
       <div className="card">
-        <p className="section-tag">Todos los usuarios</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <p className="section-tag" style={{ marginBottom: 0 }}>Todos los usuarios</p>
+          {!loading && !error && users.length > 0 && (
+            <span style={{ fontSize: 13, color: 'var(--clr-text-light)' }}>
+              Mostrando {paginatedUsers.length ? (page - 1) * 10 + 1 : 0}-{(page - 1) * 10 + paginatedUsers.length} de {filteredUsers.length}
+            </span>
+          )}
+        </div>
+
+        {!loading && !error && users.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', margin: '16px 0 20px' }}>
+            <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 180 }}>
+              <Search size={14} color="var(--clr-text-light)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+              <input className="form-control" style={{ paddingLeft: 32 }} placeholder="Buscar por correo o nombre..."
+                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
+            <select className="form-control form-control-select" style={{ maxWidth: 180 }}
+              value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+              <option value="">Todos los roles</option>
+              {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+            <select className="form-control form-control-select" style={{ maxWidth: 180 }}
+              value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option value="">Todos los estados</option>
+              {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+            {hasActiveFilters && (
+              <button className="btn btn-secondary btn-sm" onClick={clearFilters}>
+                <X size={14} /> Limpiar
+              </button>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 48 }}>
@@ -176,6 +213,22 @@ export default function AdminUsers() {
           <div style={{ padding: 16 }}>
             <p style={{ color: 'var(--clr-danger)', fontSize: 14, marginBottom: 12 }}>{error}</p>
             <button className="btn btn-secondary btn-sm" onClick={loadUsers}>Reintentar</button>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">👤</div>
+            <p>No hay usuarios aún</p>
+            <span>Invita a tu primer técnico o administrador arriba</span>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🔍</div>
+            <p>Ningún usuario coincide con los filtros</p>
+            <span>Ajusta o limpia los filtros para ver más resultados</span>
+            <br /><br />
+            <button className="btn btn-secondary" onClick={clearFilters}>
+              <X size={16} /> Limpiar Filtros
+            </button>
           </div>
         ) : (
           <>

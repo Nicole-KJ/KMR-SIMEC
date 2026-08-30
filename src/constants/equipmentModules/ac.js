@@ -8,17 +8,20 @@ import ctrlDesnudoIcon from '../../assets/equipmentIcons/ctrldesnudo.png'
 import inrowIcon from '../../assets/equipmentIcons/inrow.png'
 import mochilaIcon from '../../assets/equipmentIcons/mochila.png'
 import cracIcon from '../../assets/equipmentIcons/crac.png'
+import fancoilIcon from '../../assets/equipmentIcons/fancoil.png'
 
 export const AC_SUBTYPES = [
-  { id: 'ventana', label: 'Aire Ventana', icon: '🪟', image: ventanaIcon },
+  { id: 'ventana', label: 'Manejadora de ductos', icon: '🪟', image: ventanaIcon },
   { id: 'minisplit', label: 'MiniSplit', icon: '❄️', image: minisplitIcon },
-  { id: 'piso_techo', label: 'Piso Techo', icon: '⬆️', image: pisoTechoIcon },
+  { id: 'piso_techo', label: 'Piso Cielo', icon: '⬆️', image: pisoTechoIcon },
   { id: 'central', label: 'Central', icon: '🏢', image: centralIcon },
   { id: 'cassette', label: 'Cassette', icon: '📦', image: cassetteIcon },
-  { id: 'ctrl_desnudo', label: 'Ctrl. Desnudo', icon: '🔧', image: ctrlDesnudoIcon },
+  { id: 'ctrl_desnudo', label: 'Sistema de Control', icon: '🔧', image: ctrlDesnudoIcon },
   { id: 'inrow', label: 'InRow', icon: '🗄️', image: inrowIcon },
   { id: 'mochila', label: 'Mochila (autocontenido)', icon: '🎒', image: mochilaIcon },
   { id: 'crac', label: 'CRAC', icon: '🏭', image: cracIcon },
+  { id: 'fancoil', label: 'Fancoil', icon: '🌬️', image: fancoilIcon },
+  { id: 'controladores', label: 'Controladores', icon: '' },
 ]
 
 export const AC_WORK_ITEMS = [

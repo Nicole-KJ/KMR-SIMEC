@@ -399,7 +399,8 @@ function buildReportHTML(report, branding) {
   .work-text { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; line-height: 1.6; white-space: pre-wrap; min-height: 60px; page-break-inside: avoid; break-inside: avoid; }
   img { page-break-inside: avoid; break-inside: avoid; }
   .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px; text-align: center; color: #9ca3af; font-size: 9px; page-break-inside: avoid; break-inside: avoid; }
-  .footer-logo { width: 84px; height: 84px; object-fit: contain; margin-bottom: 6px; }
+  .footer-inner { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .footer-logo { width: 42px; height: 42px; object-fit: contain; flex-shrink: 0; }
   .status-signed { color: #10B981; font-weight: 700; }
 </style>
 </head>
@@ -479,9 +480,13 @@ ${report.equipment_type !== 'trabajos_varios' ? `
 ${signatureSection}
 
 <div class="footer">
-  <img class="footer-logo" src="${logoUrl}" alt="K Maintenance Report"><br>
-  K Maintenance Report · Este documento es un informe oficial de servicio técnico.<br>
-  Generado el ${new Date().toLocaleString('es-CR')} · Reporte ID: ${report.id ?? '—'}
+  <div class="footer-inner">
+    <img class="footer-logo" src="${logoUrl}" alt="K Maintenance Report">
+    <span>
+      K Maintenance Report · Este documento es un informe oficial de servicio técnico.<br>
+      Generado el ${new Date().toLocaleString('es-CR')} · Reporte ID: ${report.id ?? '—'}
+    </span>
+  </div>
 </div>
 
 </body>
