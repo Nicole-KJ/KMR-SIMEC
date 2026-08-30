@@ -555,6 +555,14 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   overflow-x: auto; overflow-y: hidden; margin-bottom: 8px;
 }
 .parts-table-wrapper .data-table td { padding: 8px 12px; }
+/* Técnicos' 7 columns (name + 4 time inputs + delete) shrink each cell
+   below a usable width on a narrow screen without this -- table-layout:auto
+   + width:100% squeezes content to fit rather than actually growing past
+   the wrapper, so the wrapper's own overflow-x:auto (above) never kicks in
+   and the técnico <select>'s text ends up visibly clipped. A min-width
+   makes the table genuinely wider than the wrapper on a phone, so it
+   scrolls horizontally instead of squeezing the técnico name away. */
+.technicians-table { min-width: 760px; }
 .parts-table-wrapper .form-control {
   border: none; padding: 6px 8px; border-radius: var(--radius-sm);
   background: transparent;

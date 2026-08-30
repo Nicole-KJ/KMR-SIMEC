@@ -1,9 +1,9 @@
 -- ============================================================
 --  SIMEC Service Reports – Consolidated baseline schema
 --  Equivalent end-state of supabase/migrations/001_*.sql through
---  057_sign_report_requires_completed.sql, collapsed into ONE file so
+--  058_unlinked_clients_include_events.sql, collapsed into ONE file so
 --  a brand-new Supabase project can be bootstrapped in a single run
---  instead of applying all 57 migrations one by one.
+--  instead of applying all 58 migrations one by one.
 --
 --  USE THIS FILE ONLY ON A FRESH, EMPTY SUPABASE PROJECT.
 --  Run it once in the SQL Editor (or `supabase db execute -f`).
@@ -527,25 +527,41 @@ revoke execute on function public.get_company_branding() from public;
 grant execute on function public.get_company_branding() to anon, authenticated;
 
 -- ─── get_unlinked_report_clients() — clients never linked to a portal account ─
+-- Draws from both service_reports and service_events (058) -- a client
+-- typed free-text on either one shows up here. service_events has no
+-- is_report_technician()-equivalent helper, so its branch inlines the same
+-- visibility rule as "events: select" (035).
 create or replace function public.get_unlinked_report_clients()
 returns table (client_name text, client_email text, client_address text)
 language sql
 security definer
 set search_path = public
 as $$
-  select distinct on (lower(trim(sr.client_name)))
-    sr.client_name, sr.client_email, sr.client_address
-  from public.service_reports sr
-  where public.is_report_technician(sr.id)
-    and sr.client_user_id is null
-    and sr.client_name is not null
-    and trim(sr.client_name) <> ''
-    and lower(trim(sr.client_name)) not in (
-      select lower(trim(p.full_name))
-      from public.profiles p
-      where p.role = 'cliente' and p.full_name is not null
-    )
-  order by lower(trim(sr.client_name)), sr.created_at desc;
+  select distinct on (lower(trim(client_name)))
+    client_name, client_email, client_address
+  from (
+    select sr.client_name, sr.client_email, sr.client_address, sr.created_at
+    from public.service_reports sr
+    where public.is_report_technician(sr.id)
+      and sr.client_user_id is null
+      and sr.client_name is not null
+      and trim(sr.client_name) <> ''
+
+    union all
+
+    select se.client_name, se.client_email, se.client_address, se.created_at
+    from public.service_events se
+    where (se.technician_id = auth.uid() or se.created_by = auth.uid() or public.is_admin())
+      and se.client_user_id is null
+      and se.client_name is not null
+      and trim(se.client_name) <> ''
+  ) combined
+  where lower(trim(client_name)) not in (
+    select lower(trim(p.full_name))
+    from public.profiles p
+    where p.role = 'cliente' and p.full_name is not null
+  )
+  order by lower(trim(client_name)), created_at desc;
 $$;
 
 revoke execute on function public.get_unlinked_report_clients() from public;
@@ -651,6 +667,8 @@ $$;
 grant execute on function public.get_next_event_code() to authenticated;
 
 -- ─── get_all_report_clients() — full client picker (linked + unlinked) ─
+-- Unlinked half draws from both service_reports and service_events (058),
+-- same as get_unlinked_report_clients() above.
 create or replace function public.get_all_report_clients()
 returns table (client_user_id uuid, full_name text, address text, phone text, email text)
 language sql
@@ -665,19 +683,31 @@ as $$
 
   select null::uuid as client_user_id, u.client_name as full_name, u.client_address as address, u.client_phone as phone, u.client_email as email
   from (
-    select distinct on (lower(trim(sr.client_name)))
-      sr.client_name, sr.client_email, sr.client_address, sr.client_phone
-    from public.service_reports sr
-    where public.is_report_technician(sr.id)
-      and sr.client_user_id is null
-      and sr.client_name is not null
-      and trim(sr.client_name) <> ''
-      and lower(trim(sr.client_name)) not in (
-        select lower(trim(p.full_name))
-        from public.profiles p
-        where p.role = 'cliente' and p.full_name is not null
-      )
-    order by lower(trim(sr.client_name)), sr.created_at desc
+    select distinct on (lower(trim(client_name)))
+      client_name, client_email, client_address, client_phone
+    from (
+      select sr.client_name, sr.client_email, sr.client_address, sr.client_phone, sr.created_at
+      from public.service_reports sr
+      where public.is_report_technician(sr.id)
+        and sr.client_user_id is null
+        and sr.client_name is not null
+        and trim(sr.client_name) <> ''
+
+      union all
+
+      select se.client_name, se.client_email, se.client_address, se.client_phone, se.created_at
+      from public.service_events se
+      where (se.technician_id = auth.uid() or se.created_by = auth.uid() or public.is_admin())
+        and se.client_user_id is null
+        and se.client_name is not null
+        and trim(se.client_name) <> ''
+    ) combined
+    where lower(trim(client_name)) not in (
+      select lower(trim(p.full_name))
+      from public.profiles p
+      where p.role = 'cliente' and p.full_name is not null
+    )
+    order by lower(trim(client_name)), created_at desc
   ) u
 
   order by full_name;

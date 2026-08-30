@@ -3,7 +3,7 @@
  * Uses html2pdf.js for client-side generation
  */
 import { EQUIPMENT_MODULES } from '../constants/equipmentModules'
-import { uploadReportPDF, getReportPdfUrl, getAllReports, getReport, getPublicBranding, getUserRelatedReports, clearReportCachedPdf } from './supabaseDB'
+import { uploadReportPDF, getReportPdfUrl, getAllReports, getReport, getPublicBranding, getUserRelatedReports, clearReportCachedPdf, getPhotoUrl } from './supabaseDB'
 import { logError } from '../utils/logger'
 import logoUrl from '../assets/brand/logo.png'
 
@@ -25,6 +25,31 @@ function fmtDate(d) {
 }
 function checkIcon(val) { return val ? '✅' : '❌' }
 function checkBg(val) { return val ? '#D1FAE5' : '#F3F4F6' }
+
+// Same grouping/labels as ReportDetail.jsx's own PHOTO_TYPE_LABELS (minus
+// the emoji prefixes, which don't render reliably through html2canvas).
+const PHOTO_TYPE_LABELS = { equipo: 'Fotos del Equipo', antes: 'Fotos Antes', despues: 'Fotos Después' }
+
+// Trabajos Varios has no single piece of equipment to photograph -- same
+// exclusion ReportDetail.jsx applies. Only photos that got a working
+// dataUrl (prepareReportForPDF) render -- a report with no photos, or where
+// every one of them failed to load, renders no photo sections at all.
+function buildPhotoSections(report) {
+  if (report.equipment_type === 'trabajos_varios') return ''
+  const photos = (report.photos ?? []).filter(p => p.dataUrl)
+  if (photos.length === 0) return ''
+
+  return Object.entries(PHOTO_TYPE_LABELS).map(([type, label]) => {
+    const group = photos.filter(p => (p.photo_type ?? 'equipo') === type)
+    if (group.length === 0) return ''
+    const imgs = group.map(p => `<img src="${p.dataUrl}" alt="${fmt(p.caption)}" crossorigin="anonymous">`).join('')
+    return `
+<div class="section">
+  <h3>${label}</h3>
+  <div class="photo-grid">${imgs}</div>
+</div>`
+  }).join('')
+}
 
 // ─── LABEL MAPS ──────────────────────────────────────────────────────────────
 const UPS_ACTIVITIES_LABELS = EQUIPMENT_MODULES.ups.activitiesLabels
@@ -372,6 +397,20 @@ function buildReportHTML(report, branding) {
   `
 
   const equipmentSection = buildEquipmentSection(report)
+  const photoSections = buildPhotoSections(report)
+
+  // report.event is only embedded when this report is linked to a
+  // scheduled visit (REPORT_SELECT in supabaseDB.js) -- null for most
+  // reports, so this section is skipped entirely for those.
+  const eventSection = report.event ? `
+<div class="section">
+  <h3>Evento</h3>
+  <table>
+    <tr><th>Código del Evento</th><td>${fmt(report.event.event_code)}</td><th>Nombre del Evento</th><td>${fmt(report.event.event_name)}</td></tr>
+    <tr><th>Fecha del Evento</th><td>${fmtDate(report.event.event_date)}</td><th>Hora del Evento</th><td>${fmt(report.event.event_time?.slice(0, 5))}</td></tr>
+  </table>
+</div>
+` : ''
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -398,6 +437,8 @@ function buildReportHTML(report, branding) {
   tr:nth-child(even) td { background: #fafafa; }
   .work-text { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; line-height: 1.6; white-space: pre-wrap; min-height: 60px; page-break-inside: avoid; break-inside: avoid; }
   img { page-break-inside: avoid; break-inside: avoid; }
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .photo-grid img { width: 140px; height: 140px; object-fit: cover; border: 1px solid #e5e7eb; border-radius: 6px; }
   .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px; text-align: center; color: #9ca3af; font-size: 9px; page-break-inside: avoid; break-inside: avoid; }
   .footer-inner { display: flex; align-items: center; justify-content: center; gap: 8px; }
   .footer-logo { width: 42px; height: 42px; object-fit: contain; flex-shrink: 0; }
@@ -423,6 +464,7 @@ function buildReportHTML(report, branding) {
   </div>
 </div>
 
+${eventSection}
 <div class="section">
   <h3>Información del Cliente</h3>
   <table>
@@ -477,6 +519,8 @@ ${report.equipment_type !== 'trabajos_varios' ? `
   </table>
 </div>` : ''}
 
+${photoSections}
+
 ${signatureSection}
 
 <div class="footer">
@@ -516,7 +560,13 @@ async function imageUrlToBase64(url) {
   }
 }
 
-// Pre-process report: convert signature URL to base64 for PDF embedding
+// Pre-process report: convert signature URL and report photos to base64 for
+// PDF embedding. report-photos is a private bucket -- each photo only has a
+// storage_path until getPhotoUrl signs it -- and, same as the signature,
+// converted to a data: URL rather than embedded as a live signed URL for
+// reliability with html2canvas. A photo that fails to sign/fetch is dropped
+// (dataUrl left undefined) rather than failing the whole PDF -- see
+// buildPhotoSections, which skips anything without one.
 async function prepareReportForPDF(report) {
   const prepared = { ...report }
   if (prepared.client_signature_url &&
@@ -524,6 +574,13 @@ async function prepareReportForPDF(report) {
       prepared.status === 'signed') {
     const base64 = await imageUrlToBase64(prepared.client_signature_url)
     if (base64) prepared.client_signature_url = base64
+  }
+  if (prepared.photos?.length) {
+    prepared.photos = await Promise.all(prepared.photos.map(async (p) => {
+      const url = await getPhotoUrl(p.storage_path)
+      const dataUrl = url ? await imageUrlToBase64(url) : null
+      return { ...p, dataUrl }
+    }))
   }
   return prepared
 }
@@ -737,7 +794,16 @@ export async function getReportPDFBlob(report) {
       // padding only ever shows once, at the very start of that image.
       margin: [10, 10, 10, 10],
       image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true },
+      // scale: 2 (every pixel rendered at 2x for print sharpness) made
+      // html2canvas rasterize a genuinely huge canvas for a full multi-
+      // section A4 report -- on some GPUs that's enough to cause a brief
+      // full-screen white flash while the browser paints/composites it,
+      // independent of the (already-hidden, see .html2pdf__overlay in
+      // index.css) source DOM's own visibility. Not reproducible in
+      // headless Chrome (software rendering), only on real hardware --
+      // 1.5 cuts the rasterized pixel count by ~44% ((1.5/2)^2) as a
+      // trade-off against that, still noticeably sharper than 1x.
+      html2canvas: { scale: 1.5, useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       // 'avoid-all' checks every element's own bounding box against the
       // page boundary and forces a break before it rather than splitting

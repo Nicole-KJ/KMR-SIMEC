@@ -28,10 +28,6 @@ export function todayISODate() {
   return `${year}-${month}-${day}`
 }
 
-export function isFutureDate(dateStr) {
-  if (isBlank(dateStr)) return false
-  return dateStr > todayISODate()
-}
 
 // Costa Rican cédula nacional (9 digits) or DIMEX (11-12 digits), dashes optional
 export function isValidCedula(v) {
@@ -70,7 +66,6 @@ export function validateReport({
   if (isBlank(workDescription)) errors.push('La descripción del trabajo realizado es requerida.')
   if (isBlank(serviceType)) errors.push('Selecciona el tipo de servicio.')
   if (isBlank(reportDate)) errors.push('La fecha del reporte es requerida.')
-  else if (isFutureDate(reportDate)) errors.push('La fecha del reporte no puede ser en el futuro.')
 
   const hasTechnician = (technicians ?? []).some(t => !isBlank(t.technician_name))
   if (!hasTechnician) errors.push('Agrega al menos un técnico.')

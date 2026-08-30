@@ -148,11 +148,8 @@ export default function NewReport() {
   // module click applies, and the only option Tipo de Servicio's UI shows
   // once isTrabajosVarios is true. event_date is copied as-is even when
   // it's in the future (a report created ahead of a scheduled visit) --
-  // Fecha's max attribute only constrains its native picker widget, this
-  // page has no <form> to trigger the browser's own submit-time validity
-  // check, and validateReport's isFutureDate rule only runs on Completar
-  // Reporte, by which point the técnico is expected to have caught up the
-  // date to when the visit actually happened.
+  // Fecha has no future-date restriction at all, so there's nothing to
+  // reconcile once the técnico gets to the actual visit.
   useEffect(() => {
     if (isEditMode || !eventId) return
     const ev = eventOptions.find(e => e.id === eventId)
@@ -171,6 +168,19 @@ export default function NewReport() {
       if (ev.client_address) setClientAddress(ev.client_address)
       if (ev.client_phone) setClientPhone(ev.client_phone)
       if (ev.client_email) setClientEmail(ev.client_email)
+    }
+    // Técnico asignado on the event fills the first (still-blank) Técnicos
+    // row -- same "don't overwrite something already picked/typed" guard as
+    // the client fields above. technician_id is looked up against this
+    // técnico's own technicianOptions so RLS recognizes them as listed on
+    // the report (027) the same way picking from the dropdown would;
+    // ev.technician_name is only a fallback for the rare case they're not
+    // in that list (e.g. an admin's dropdown scope differs from a técnico's).
+    if (ev.technician_id && technicians.length === 1 && !technicians[0].technician_name.trim()) {
+      const opt = technicianOptions.find(o => o.id === ev.technician_id)
+      setTechnicians(prev => prev.map((t, i) => i === 0
+        ? { ...t, technician_id: ev.technician_id, technician_name: opt?.full_name ?? ev.technician_name ?? '' }
+        : t))
     }
     // Auto-selects "Cliente registrado" to match, whether or not the match
     // is portal-linked -- clientOptions (051) is portal 'cliente' profiles
@@ -209,7 +219,7 @@ export default function NewReport() {
         }
       }
     }
-  }, [isEditMode, eventId, eventOptions, clientOptions, selectedModule, serviceType, clientName, clientAddress, clientPhone, clientEmail, selectedClientKey])
+  }, [isEditMode, eventId, eventOptions, clientOptions, selectedModule, serviceType, clientName, clientAddress, clientPhone, clientEmail, selectedClientKey, technicians, technicianOptions])
 
   // ── Load existing report when editing ──
   useEffect(() => {
@@ -796,7 +806,7 @@ export default function NewReport() {
           </div>
           <div className="form-group">
             <label className="form-label">Fecha <span>*</span></label>
-            <input className="form-control" type="date" value={reportDate} max={todayISODate()} onChange={e=>setReportDate(e.target.value)} />
+            <input className="form-control" type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)} />
           </div>
         </div>
       </div>
@@ -850,11 +860,11 @@ export default function NewReport() {
           </button>
         </div>
         <div className="parts-table-wrapper">
-          <table className="data-table">
+          <table className="data-table technicians-table">
             <thead>
               <tr>
                 <th>#</th>
-                <th>Nombre del técnico</th>
+                <th style={{ minWidth:200 }}>Nombre del técnico</th>
                 <th>H. Reporte Falla</th>
                 <th>H. Llegada PDV</th>
                 <th>H. Salida PDV</th>

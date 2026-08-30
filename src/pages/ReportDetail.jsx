@@ -357,7 +357,7 @@ export default function ReportDetail() {
         )}
         {!isClient && report.status === 'completed' && (
           <button className="btn btn-secondary" onClick={copyLink}>
-            <Share2 size={16} /> {copySuccess ? '¡Link Copiado!' : 'Copiar Link'}
+            <Share2 size={16} /> {copySuccess ? '¡Enlace Copiado!' : 'Copiar Enlace de Firma'}
           </button>
         )}
         {canEdit && (
