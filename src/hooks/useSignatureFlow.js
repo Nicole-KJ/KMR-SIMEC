@@ -17,6 +17,11 @@ export function useSignatureFlow(reportId) {
   const [hasSig, setHasSig] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  // Distinguishes "just signed it in this session" from "was already signed
+  // when this loaded" -- same `saved` state either way, but SignatureModal
+  // shows a brief auto-closing confirmation for the former and a persistent
+  // read-only view for the latter (opened via "Ver Firma").
+  const [justSigned, setJustSigned] = useState(false)
   const [error, setError] = useState('')
 
   function loadReport() {
@@ -94,6 +99,7 @@ export function useSignatureFlow(reportId) {
         client_signature_url: signatureUrl,
       })
       setSaved(true)
+      setJustSigned(true)
       const updated = await getReportForSignature(reportId)
       setReport(updated)
       return updated
@@ -106,7 +112,7 @@ export function useSignatureFlow(reportId) {
   }
 
   return {
-    canvasRef, report, loading, error, saved,
+    canvasRef, report, loading, error, saved, justSigned,
     signerName, setSignerName, signerId, setSignerId,
     hasSig, saving,
     loadReport,
