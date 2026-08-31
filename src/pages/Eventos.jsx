@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, ChevronRight, Loader, Plus } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Loader, Plus, X } from 'lucide-react'
 import { getEvents } from '../services/supabaseDB'
 import { todayISODate } from '../utils/validation'
 import { logError } from '../utils/logger'
+import { useEventFilters } from '../hooks/useEventFilters'
+import { usePagination } from '../hooks/usePagination'
+import EventFilters from '../components/EventFilters'
+import EventsTable, { EventsTableSkeleton } from '../components/EventsTable'
+import Pagination from '../components/Pagination'
 
 const MONTH_LABELS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -94,6 +99,18 @@ export default function Eventos() {
   }
 
   useEffect(() => { loadEvents() }, [])
+
+  // All-events table below the calendar -- independent of the calendar's
+  // viewMode/anchorDate, always the full list, same search/filter/pagination
+  // pattern as ReportsList.
+  const eventFilters = useEventFilters(events)
+  const { filteredEvents, clearFilters,
+    searchQuery, technicianFilter, statusFilter, serviceTypeFilter, equipmentFilter, dateFrom, dateTo } = eventFilters
+  const { page, setPage, totalPages, pageItems: paginatedEvents } = usePagination(filteredEvents)
+
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery, technicianFilter, statusFilter, serviceTypeFilter, equipmentFilter, dateFrom, dateTo, setPage])
 
   // Jump to ~7am rather than opening at midnight every time the planner
   // shows up -- only on switching *into* week view, not on every prev/next
@@ -286,6 +303,55 @@ export default function Eventos() {
             {WEEKDAY_LABELS.map(w => <div className="calendar-weekday" key={w}>{w}</div>)}
             {monthCells.map(renderDayCell)}
           </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ fontSize: 17, fontWeight: 700 }}>Todos los Eventos</h3>
+          {!loading && events.length > 0 && (
+            <span style={{ fontSize: 13, color: 'var(--clr-text-light)' }}>
+              Mostrando {paginatedEvents.length ? (page - 1) * 10 + 1 : 0}-{(page - 1) * 10 + paginatedEvents.length} de {filteredEvents.length}
+            </span>
+          )}
+        </div>
+
+        {!loading && events.length > 0 && <EventFilters {...eventFilters} />}
+
+        {loading ? (
+          <EventsTableSkeleton />
+        ) : error ? (
+          <div className="empty-state">
+            <div className="empty-icon">⚠️</div>
+            <p>No se pudieron cargar los eventos</p>
+            <br />
+            <button className="btn btn-primary" onClick={loadEvents}>Reintentar</button>
+          </div>
+        ) : events.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">📅</div>
+            <p>No hay eventos aún</p>
+            <span>Crea tu primer evento</span>
+            <br /><br />
+            <button className="btn btn-primary" onClick={() => navigate('/eventos/nuevo')}>
+              <Plus size={16} /> Nuevo Evento
+            </button>
+          </div>
+        ) : filteredEvents.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🔍</div>
+            <p>Ningún evento coincide con los filtros</p>
+            <span>Ajusta o limpia los filtros para ver más resultados</span>
+            <br /><br />
+            <button className="btn btn-secondary" onClick={clearFilters}>
+              <X size={16} /> Limpiar Filtros
+            </button>
+          </div>
+        ) : (
+          <>
+            <EventsTable events={paginatedEvents} />
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+          </>
         )}
       </div>
     </div>
