@@ -106,6 +106,10 @@ serve(async (req) => {
         banned: !!u.banned_until && new Date(u.banned_until) > new Date(),
         full_name: profileById[u.id]?.full_name ?? null,
         role: profileById[u.id]?.role ?? 'tecnico',
+        // Invited via inviteUserByEmail but never accepted (link not yet
+        // clicked / password not yet set) — email_confirmed_at only gets
+        // set once they redeem the invite token.
+        pending: !!u.invited_at && !u.email_confirmed_at,
       }))
 
       return json({ users }, 200, cors)

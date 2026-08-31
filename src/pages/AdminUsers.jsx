@@ -262,8 +262,8 @@ export default function AdminUsers() {
                         </select>
                       </td>
                       <td>
-                        <span className={`badge ${u.banned ? 'badge-draft' : 'badge-signed'}`}>
-                          {u.banned ? 'Deshabilitado' : 'Activo'}
+                        <span className={`badge ${u.banned ? 'badge-draft' : u.pending ? 'badge-pendiente' : 'badge-signed'}`}>
+                          {u.banned ? 'Deshabilitado' : u.pending ? 'Pendiente' : 'Activo'}
                         </span>
                       </td>
                       <td style={{ color: 'var(--clr-text-light)' }}>
