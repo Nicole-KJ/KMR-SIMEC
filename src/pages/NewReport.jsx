@@ -630,7 +630,11 @@ export default function NewReport() {
           <Camera size={28} color="var(--clr-primary)" style={{ margin:'0 auto 8px' }} />
           <p style={{ fontWeight:600, color:'var(--clr-primary)' }}>Agregar fotos</p>
           <p style={{ fontSize:13, color:'var(--clr-text-light)' }}>{hint}</p>
-          <input id={inputId} type="file" accept="image/*" multiple capture="environment"
+          {/* No `capture` attribute -- that forces mobile browsers straight
+              into the camera, skipping the native chooser entirely. Without
+              it, iOS/Android show their own "Take Photo / Photo Library"
+              (or Camera/Gallery) picker, matching the hint text above. */}
+          <input id={inputId} type="file" accept="image/*" multiple
             style={{ display:'none' }} onChange={e => handlePhotoAdd(e, type)} />
         </label>
         {added.length > 0 && (

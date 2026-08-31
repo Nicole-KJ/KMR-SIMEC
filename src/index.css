@@ -320,8 +320,13 @@ body {
 
 /* ReportDetail's "Cliente"/"Equipo" (etc.) card grid -- an inline style
    can't be reached by the @media override below, so this owns
-   grid-template-columns instead. */
-.report-detail-grid { grid-template-columns: 1fr 1fr; }
+   grid-template-columns instead. auto-fit/minmax instead of a plain
+   "1fr 1fr" + @media(max-width:768px) override: it collapses to one
+   column based on the grid's own available width rather than the
+   document viewport, so it stacks correctly even inside an embedded
+   webview/reader pane that doesn't evaluate viewport-width media
+   queries the same way full mobile Safari does. */
+.report-detail-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 
 /* Generic "2 equal columns, collapses to 1 on mobile" grid, for the various
    one-off inline gridTemplateColumns:'1fr 1fr' spots that otherwise can't
@@ -1155,7 +1160,6 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   .pressure-group .pressure-inputs { grid-template-columns: 1fr 1fr; }
   .measurement-grid { grid-template-columns: repeat(2, 1fr); }
   .phase-selector { flex-direction: column; }
-  .report-detail-grid { grid-template-columns: 1fr; }
   .responsive-grid-2 { grid-template-columns: 1fr; }
   .login-card { padding: 24px; }
   .login-logo-badge { width: 140px; height: 140px; }
