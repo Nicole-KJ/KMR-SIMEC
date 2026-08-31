@@ -6,7 +6,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const ALLOWED_ORIGINS = ['http://localhost:5176', 'https://reportes.simec-cr.com']
+const ALLOWED_ORIGINS = [
+  'http://localhost:5176',
+  'https://reportes.simec-cr.com',
+  'https://www.simec-cr.com',
+  'https://simec-cr.com',
+]
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get('origin') ?? ''
