@@ -341,7 +341,7 @@ export default function ReportDetail() {
         )}
         {report.status === 'signed' ? (
           <button className="btn btn-secondary" style={{ color:'var(--clr-success)', borderColor:'var(--clr-success)' }}
-            onClick={() => window.open(`/firma/${report.id}`, '_blank')}>
+            onClick={() => setShowSignatureModal(true)}>
             <CheckCircle size={16} /> Ver Firma
           </button>
         ) : report.status === 'completed' && (
