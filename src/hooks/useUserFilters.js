@@ -7,6 +7,7 @@ export const ROLE_OPTIONS = [
 
 export const STATUS_OPTIONS = [
   { value: 'active', label: 'Activo' },
+  { value: 'pending', label: 'Pendiente' },
   { value: 'banned', label: 'Deshabilitado' },
 ]
 
@@ -37,7 +38,8 @@ export function useUserFilters(users) {
   const filteredUsers = users.filter(u => {
     if (searchQuery && !userSearchText(u).includes(foldAccents(searchQuery))) return false
     if (roleFilter && u.role !== roleFilter) return false
-    if (statusFilter === 'active' && u.banned) return false
+    if (statusFilter === 'active' && (u.banned || u.pending)) return false
+    if (statusFilter === 'pending' && !u.pending) return false
     if (statusFilter === 'banned' && !u.banned) return false
     return true
   })

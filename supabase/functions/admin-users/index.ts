@@ -6,7 +6,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const ALLOWED_ORIGINS = ['http://localhost:5176', 'https://reportes.simec-cr.com']
+const ALLOWED_ORIGINS = [
+  'http://localhost:5176',
+  'https://reportes.simec-cr.com',
+  'https://www.simec-cr.com',
+  'https://simec-cr.com',
+]
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get('origin') ?? ''
@@ -101,6 +106,10 @@ serve(async (req) => {
         banned: !!u.banned_until && new Date(u.banned_until) > new Date(),
         full_name: profileById[u.id]?.full_name ?? null,
         role: profileById[u.id]?.role ?? 'tecnico',
+        // Invited via inviteUserByEmail but never accepted (link not yet
+        // clicked / password not yet set) — email_confirmed_at only gets
+        // set once they redeem the invite token.
+        pending: !!u.invited_at && !u.email_confirmed_at,
       }))
 
       return json({ users }, 200, cors)
