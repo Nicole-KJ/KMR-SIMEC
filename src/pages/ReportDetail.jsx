@@ -14,6 +14,7 @@ import { useToast } from '../contexts/ToastContext'
 import { logError } from '../utils/logger'
 import { SkeletonBlock } from '../components/Skeleton'
 import { useBackNavigate } from '../hooks/useBackNavigate'
+import SignatureModal from '../components/SignatureModal'
 
 const UPS_ACTIVITIES_LABELS = EQUIPMENT_MODULES.ups.activitiesLabels
 const UPS_TESTS_LABELS = EQUIPMENT_MODULES.ups.testsLabels
@@ -38,6 +39,7 @@ export default function ReportDetail() {
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [emailResult, setEmailResult] = useState(null)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [photoUrls, setPhotoUrls] = useState({})
   const [previewPhoto, setPreviewPhoto] = useState(null)
   const [equipmentFileUrls, setEquipmentFileUrls] = useState({})
@@ -351,7 +353,7 @@ export default function ReportDetail() {
           // allow, for staff and clients alike.
           <button className="btn btn-primary"
             style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 4px 14px rgba(16,185,129,0.35)' }}
-            onClick={() => window.open(`/firma/${report.id}`, '_blank')}>
+            onClick={() => setShowSignatureModal(true)}>
             <PenLine size={16} /> Firmar Reporte
           </button>
         )}
@@ -784,6 +786,14 @@ export default function ReportDetail() {
         <CheckCircle size={14} color="var(--clr-success)" />
         Reporte guardado en Supabase · ID: <code style={{ fontSize:11 }}>{report.id}</code>
       </div>
+
+      {showSignatureModal && (
+        <SignatureModal
+          reportId={report.id}
+          onClose={() => setShowSignatureModal(false)}
+          onSigned={() => { setShowSignatureModal(false); loadReport({ silent: true }) }}
+        />
+      )}
 
       {/* Photo preview lightbox — portaled to <body> so it's fixed to the real
           viewport, not to .fade-in's containing block (its transform-bearing
