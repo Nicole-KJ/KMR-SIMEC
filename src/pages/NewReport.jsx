@@ -55,12 +55,6 @@ export default function NewReport() {
   const prefilledDateRef = useRef(false)
   const [reportNumber, setReportNumber] = useState(null)
   const [existingPhotos, setExistingPhotos] = useState([])
-  // The status this report actually had when the edit screen opened --
-  // "Guardar Cambios" saves without changing status, so it needs the
-  // original value rather than always forcing 'completed' (that's what
-  // "Completar Reporte"/first-time completion is for).
-  const [originalStatus, setOriginalStatus] = useState('draft')
-
   const [selectedModule, setSelectedModule] = useState('')
   const [serviceType, setServiceType] = useState('')
 
@@ -248,7 +242,6 @@ export default function NewReport() {
         return
       }
 
-      setOriginalStatus(r.status || 'draft')
       setReportNumber(r.report_number)
       setSelectedModule(r.equipment_type)
       setServiceType(r.service_type)
@@ -1414,7 +1407,7 @@ export default function NewReport() {
           {saving ? <><Loader size={14} className="spin" /> Guardando...</> : 'Guardar Borrador'}
         </button>
         <button id="btn-completar-reporte" className="btn btn-primary"
-          onClick={()=>handleSave(isEditMode ? originalStatus : 'completed')}
+          onClick={()=>handleSave('completed')}
           disabled={saving}>
           {saving ? <><Loader size={14} className="spin" /> Guardando...</> : (isEditMode ? 'Guardar Cambios' : 'Completar Reporte →')}
         </button>
